@@ -1,118 +1,118 @@
 ﻿# AGIG Influence Maximization with Interest Lifecycle
 
-**AGIG (Awareness-Gap Influence Gap)** — A deep learning framework for personalized seed selection in social influence maximization. This prototype combines knowledge graph-enhanced content encoding, multi-interest extraction, interest lifecycle modeling, and dynamic social graph propagation to find the most influential seed users for a target content item.
+**AGIG (Awareness-Gap Influence Gap)** — 一个基于深度学习的个性化种子用户选取框架，用于社交网络影响力最大化问题。该原型将知识图谱增强的内容编码、多兴趣提取、兴趣生命周期建模和动态社交图传播相结合，为目标内容选取最具影响力的种子用户。
 
-## Overview
+## 概述
 
-Influence maximization is the problem of selecting a small set of seed users who, through social influence propagation, will maximize awareness or adoption of a target piece of content. This framework extends the classic formulation with:
+影响力最大化 (Influence Maximization) 的目标是选出少量种子用户，通过社交影响力传播最大化目标内容的覆盖或采纳。本框架在经典问题的基础上引入了以下扩展：
 
-- **Interest Lifecycle** — models how each user's interest in a topic evolves over time (growth, peak, decline), rather than treating interest as static.
-- **KG-Enhanced Content Understanding** — uses knowledge graph triples to enrich both user history and target content representations.
-- **Multi-Interest Extraction** — captures multiple latent interest dimensions from each user's historical interactions.
-- **Dynamic Social Graph** — processes a temporal sequence of social graphs (weighted edges) through GraphSAGE layers + GRU to capture evolving social relationships.
-- **Target-Aware Propagation** — computes diffusion probabilities conditioned on both the target content and the user's current interest.
+- **兴趣生命周期** — 建模每个用户对某个主题的随时间演变的兴趣阶段（增长、峰值、衰退），而非将兴趣视为静态特征。
+- **KG 增强的内容理解** — 利用知识图谱三元组来增强用户历史内容和目标内容的语义表示。
+- **多兴趣提取** — 通过自注意力机制从用户历史交互中提取多个潜在兴趣维度。
+- **动态社交图** — 通过 GraphSAGE 层加 GRU 处理时序社交图序列，捕捉社交关系的动态演变。
+- **目标感知传播** — 计算依赖于目标内容和用户当前兴趣的传播概率。
 
-## Architecture
+## 架构
 
-The pipeline consists of seven components:
+整个流水线由七个组件构成：
 
 `
-User History + Content  ──►  KG-Enhanced Content Encoder  ──►  Query + History Repr
-                                     │
-                                     ▼
-                            Multi-Interest Extractor
-                                     │
-                                     ▼
-                            Interest Lifecycle Module
-                                     │
-                                     ▼
-Dynamic Social Graph ──►  Dynamic Graph Encoder
-                                     │
-                                     ▼
-                            Potential Interest Scorer
-                                     │
-                                     ▼
-                            Target-Aware Propagation
-                                     │
-                                     ▼
-                            Greedy Seed Selection
+用户历史 + 内容  ──►  KG 增强内容编码器  ──►  查询向量 + 历史表示
+                              │
+                              ▼
+                      多兴趣提取器
+                              │
+                              ▼
+                      兴趣生命周期模块
+                              │
+                              ▼
+动态社交图 ──►  动态图编码器
+                              │
+                              ▼
+                      潜在兴趣评分器
+                              │
+                              ▼
+                      目标感知传播模型
+                              │
+                              ▼
+                      贪心种子选取
 `
 
-### 1. KG-Enhanced Content Encoder
-Encodes user history and target content text via a knowledge graph. Uses relation-aware GCN layers to propagate information across entities, producing a content query vector **q(c)** and user history representations **H_u**.
+### 1. KG 增强内容编码器
+通过知识图谱对用户历史内容和目标内容文本进行编码。使用关系感知的 GCN 层在实体间传播信息，生成内容查询向量 **q(c)** 和用户历史表示 **H_u**。
 
-### 2. Multi-Interest Extractor
-Projects the user history representation into **multiple latent interest vectors** using a self-attention mechanism, allowing each user to have distinct interest facets.
+### 2. 多兴趣提取器
+利用自注意力机制将用户历史表示投影为**多个潜在兴趣向量**，使每个用户可以拥有不同的兴趣维度。
 
-### 3. Interest Lifecycle Module
-Takes multi-interest vectors plus lifecycle features (recent activity, frequency trend, recency, interaction interval, growth slope) and models each interest's current phase. Outputs refined interest vectors weighted by lifecycle stage.
+### 3. 兴趣生命周期模块
+结合多兴趣向量和生命周期特征（近期活跃度、频率趋势、最近交互时间、交互间隔、增长斜率），对每个兴趣的当前阶段进行建模。输出经生命周期阶段加权后的兴趣向量。
 
-### 4. Dynamic Social Graph Encoder
-Processes a sequence of temporal social graphs through stacked GraphSAGE layers followed by a GRU. Each graph snapshot produces node embeddings that capture evolving structural roles and relationship strengths.
+### 4. 动态社交图编码器
+通过堆叠的 GraphSAGE 层和 GRU 处理一系列时序社交图快照。每个快照产生反映结构角色和关系强度的节点嵌入。
 
-### 5. Potential Interest User Scorer
-Combines the content query, lifecycle-weighted interests, KG similarity, raw activity, and dynamic graph context to compute **I_u(c, t)** — the potential interest score of user *u* for content *c* at time *t*.
+### 5. 潜在兴趣评分器
+综合内容查询向量、生命周期加权的兴趣向量、KG 语义相似度、原始活跃度和动态图上下文，计算 **I_u(c, t)** —— 用户 *u* 在时间 *t* 对内容 *c* 的潜在兴趣得分。
 
-### 6. Target-Aware Propagation
-Extends the independent cascade model: **p_target(u, v, c, t)** captures the probability that user *v* is influenced by *u* specifically for content *c* at time *t*, factoring in both users' interest scores.
+### 6. 目标感知传播模型
+扩展经典独立级联模型：**p_target(u, v, c, t)** 表示用户 *v* 被用户 *u* 针对内容 *c* 在时间 *t* 影响的概率，同时考虑双方的兴趣得分。
 
-### 7. Greedy Seed Selection
-Given the dense propagation matrix and interest scores, selects the top-*k* seeds using a greedy marginal gain approximation (2-hop influence estimate).
+### 7. 贪心种子选取
+基于稠密传播矩阵和兴趣得分，使用贪心边际收益近似（2 跳影响力估计）选出 top-*k* 种子用户。
 
-## Getting Started
+## 快速开始
 
-### Requirements
+### 环境要求
 
 - Python 3.10+
 - PyTorch 2.x
 - numpy
 
-### Installation
+### 安装
 
 `ash
-# Create and activate virtual environment (optional)
+# 创建并激活虚拟环境（可选）
 python -m venv .venv
 .venv\\Scripts\\activate
 
-# Install dependencies
+# 安装依赖
 pip install torch numpy
 `
 
-### Run
+### 运行
 
 `ash
 python main.py
 `
 
-Output includes:
-- Per-user potential interest scores
-- Target-aware edge propagation probabilities
-- Selected seed set and its approximate influence value
+运行输出包括：
+- 每个用户的潜在兴趣得分
+- 每条边上的目标感知传播概率
+- 选出的种子集合及其近似影响力值
 
-## Project Structure
+## 项目结构
 
 `
-├── main.py                         # Entry point: assembles pipeline and runs inference
+├── main.py                         # 入口：组装流水线并执行推理
 ├── data/
-│   └── toy_data.py                 # Toy dataset generator (8 users, 3 time steps)
+│   └── toy_data.py                 # 玩具数据集生成器（8 个用户，3 个时间步）
 ├── models/
-│   ├── kg_encoder.py               # KG-enhanced content encoder
-│   ├── multi_interest.py           # Multi-interest extractor (self-attention)
-│   ├── lifecycle.py                # Interest lifecycle module
-│   ├── dynamic_graph_encoder.py    # GraphSAGE + GRU for temporal graphs
-│   ├── interest_scorer.py          # Potential interest scorer I_u(c,t)
-│   └── propagation.py             # Target-aware propagation model
+│   ├── kg_encoder.py               # KG 增强内容编码器
+│   ├── multi_interest.py           # 多兴趣提取器（自注意力）
+│   ├── lifecycle.py                # 兴趣生命周期模块
+│   ├── dynamic_graph_encoder.py    # GraphSAGE + GRU 时序图编码器
+│   ├── interest_scorer.py          # 潜在兴趣评分器 I_u(c,t)
+│   └── propagation.py             # 目标感知传播模型
 ├── optimization/
-│   └── seed_selection.py           # Greedy seed selection
+│   └── seed_selection.py           # 贪心种子选取
 ├── utils/
-│   └── metrics.py                  # Helper utilities
+│   └── metrics.py                  # 辅助工具函数
 └── requirements.txt
 `
 
-## Roadmap (Possible Extensions)
+## 扩展方向
 
-- Replace toy data with real social network and interaction datasets.
-- Add temporal attention to the lifecycle module.
-- Incorporate explicit time embeddings into the dynamic graph encoder.
-- Support for continuous-time dynamic graphs.
-- Alternative seed selection algorithms (CELF, RIS-based).
+- 用真实社交网络和交互数据替代玩具数据集
+- 在生命周期模块中加入时序注意力机制
+- 在动态图编码器中引入显式时间嵌入
+- 支持连续时间的动态图
+- 引入其他种子选取算法（CELF、基于 RIS 的方法）
